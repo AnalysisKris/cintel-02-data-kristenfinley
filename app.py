@@ -1,46 +1,117 @@
 import plotly.express as px
-from shiny.express import input, ui
-from shinywidgets import render_plotly
-import palmerpenguins  # This package provides the Palmer Penguins dataset
+from palmerpenguins import load_penguins
+from shiny.express import input, ui, render
+from shinywidgets import render_widget, render_plotly
+import seaborn as sns
+import matplotlib.pyplot as plt
 
-# Load the Palmer Penguins dataset
-penguins_df = palmerpenguins.load_penguins()
+penguins = load_penguins()
 
-# Set the page options for the Shiny app
-ui.page_opts(title="Kristen's Penguin Data: Numerical Data Histograms", fillable=True)
+# Set the page options with the title "Kristen's Penguins Data" and make it fillable
+ui.page_opts(title="Kristen's Penguins Data", fillable=True)
 
-# Define the numerical columns. This section is not necessary, but is an artifact from an attempt to render all columns simulatneously.
-# numerical_columns = [
-#    "bill_length_mm",
-#    "bill_depth_mm",
-#    "flipper_length_mm",
-#    "body_mass_g",
-# ]
+# Add a Shiny UI sidebar for user interaction
+with ui.sidebar(
+    position="right", bg="#f8f8f8", open="open"
+):  # Set sidebar open by default
+    ui.h2("Sidebar")  # Add a second-level header titled "Sidebar"
 
-# Define the layout and the individual plot renderings
+    # Create a dropdown input for choosing a column
+    ui.input_selectize(
+        "selected_attribute",
+        "Select column to visualize",
+        choices=["bill_length_mm", "bill_depth_mm", "flipper_length_mm", "body_mass_g"],
+        selected="bill_length_mm",
+    )
+
+    # Create a numeric input for Plotly histogram bins
+    ui.input_numeric("plotly_bin_count", "Plotly bin numeric", 1, min=1, max=10)
+
+    # Create a slider input for Seaborn bins
+    ui.input_slider(
+        "seaborn_bin_count", "Seaborn bin count", 10, 100, 20, step=5, animate=True
+    )
+
+    # Create a checkbox group to filter species
+    ui.input_checkbox_group(
+        "selected_species_list",
+        "Select a species",
+        choices=["Adelie", "Gentoo", "Chinstrap"],
+        selected=["Adelie"],
+        inline=True,
+    )
+
+    # Add a horizontal rule in the sidebar
+    ui.hr()
+
+    # Add a hyperlink to the sidebar for GitHub repository
+    ui.h5("GitHub Code Repository")
+    ui.a(
+        "cintel-02-data-kristenfinley",
+        href="https://github.com/AnalysisKris/cintel-02-data-kristenfinley",
+        target="_blank",
+    )
+
+# Main content layout
 with ui.layout_columns():
+    # Display the Plotly Histogram
+    with ui.card():
+        ui.card_header("Plotly Histogram")
 
-    # Define individual histogram plots
-    @render_plotly
-    def plot_bill_length():
-        return px.histogram(
-            penguins_df, x="bill_length_mm", title="Histogram of Bill Length (mm)"
-        )
+        @render_plotly
+        def plotly_histogram():
+            return px.histogram(
+                penguins,
+                x=input.selected_attribute(),
+                nbins=input.plotly_bin_count(),
+                color="species",
+            )
 
-    @render_plotly
-    def plot_bill_depth():
-        return px.histogram(
-            penguins_df, x="bill_depth_mm", title="Histogram of Bill Depth (mm)"
-        )
+    # Display Data Table (showing all data)
+    with ui.card():
+        ui.card_header("Data Table")
 
-    @render_plotly
-    def plot_flipper_length():
-        return px.histogram(
-            penguins_df, x="flipper_length_mm", title="Histogram of Flipper Length (mm)"
-        )
+        @render.data_frame
+        def data_table():
+            return render.DataTable(penguins)
 
-    @render_plotly
-    def plot_body_mass():
-        return px.histogram(
-            penguins_df, x="body_mass_g", title="Histogram of Body Mass (g)"
-        )
+    # Display Data Grid (showing all data)
+    with ui.card():
+        ui.card_header("Data Grid")
+
+        @render.data_frame
+        def data_grid():
+            return render.DataGrid(penguins)
+
+
+# Display the Scatterplot and Seaborn Histogram
+with ui.layout_columns():
+    # Plotly Scatterplot (showing all species)
+    with ui.card():
+        ui.card_header("Plotly Scatterplot: Species")
+
+        @render_plotly
+        def plotly_scatterplot():
+            return px.scatter(
+                data_frame=penguins,
+                x="body_mass_g",
+                y="bill_depth_mm",
+                color="species",
+                labels={
+                    "bill_depth_mm": "Bill Depth (mm)",
+                    "body_mass_g": "Body Mass (g)",
+                },
+            )
+
+    # Seaborn Histogram (showing all species)
+    with ui.card():
+        ui.card_header("Seaborn Histogram: All Species")
+
+        @render.plot
+        def seaborn_histogram():
+            hist = sns.histplot(
+                data=penguins, x="body_mass_g", bins=input.seaborn_bin_count()
+            )
+            hist.set_xlabel("Mass (g)")
+            hist.set_ylabel("Count")
+            return hist
