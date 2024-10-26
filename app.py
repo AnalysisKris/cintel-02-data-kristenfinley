@@ -115,3 +115,12 @@ with ui.layout_columns():
             hist.set_xlabel("Mass (g)")
             hist.set_ylabel("Count")
             return hist
+            
+    # Summary Statistics Table
+    with ui.card():
+        ui.card_header("Summary Statistics")
+        
+        @render.data_frame
+        def summary_table():
+            summary = penguins.describe()
+            return summary.reset_index()  # Reset index for display
